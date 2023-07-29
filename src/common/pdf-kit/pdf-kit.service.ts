@@ -19,10 +19,16 @@ interface IPdfKitParams {
 	yAxis?: number;
 	width?: number;
 	height?: number;
-	border?: { thickness: number; radius: number; };
+	border?: {
+		color: PDFKit.Mixins.ColorValue,
+		thickness?: number;
+		radius?: number;
+	};
+	color?: PDFKit.Mixins.ColorValue;
 	frColor?: PDFKit.Mixins.ColorValue;
 	bgColor?: PDFKit.Mixins.ColorValue;
 	lineThickness?: number;
+	listItems?: string[] | number[];
 	imageUrl?: string;
 	documentType?: 'image' | 'pdf';
 	options?: PDFKit.Mixins.TextOptions & PDFKit.Mixins.ImageOption;
@@ -57,6 +63,7 @@ export class PdfKitService {
 	}
 
 	RenderText({ document, text, font, xAxis, yAxis, options }: IPdfKitParams): void {
+		// https://pdfkit.org/docs/text.html#fonts
 		document.fontSize(font?.size || 14)
 			.fillColor(text.color || '#4e5560')
 			.font(font?.name || 'Helvetica')
@@ -67,30 +74,16 @@ export class PdfKitService {
 			});
 	}
 
-	RenderCircle({ document, xAxis, yAxis, bgColor }: IPdfKitParams): void {
-		document.circle(xAxis, yAxis, 50)
-			.fill(bgColor || '#9165c3');
+
+	RenderRectangle({ document, xAxis, yAxis, width, height, frColor, bgColor, border }: IPdfKitParams): void {
+		document.lineWidth(border?.thickness || 0);
+		document.strokeColor(border?.color).roundedRect(xAxis, yAxis, width, height, border?.radius).fillAndStroke(bgColor, frColor).stroke();
 	}
 
-	RenderRectangle({ document, xAxis, yAxis, width, height, bgColor }: IPdfKitParams): void {
-		document.rect(xAxis, yAxis, width, height);
-		document.fill(bgColor).stroke();
-	}
-
-
-	RenderInitial({ document, text, xAxis, yAxis }: IPdfKitParams): void {
-		document.fontSize(10)
-			.fillColor(text.color)
-			.text(text.value.toString(), xAxis, yAxis, {
-				align: "center",
-				characterSpacing: .5
-			});
-	}
-
-	RenderLine({ document, frColor, lineThickness, width, yAxis }: IPdfKitParams): void {
-		document.strokeColor(frColor || "#eef3fb")
+	RenderLine({ document, color, lineThickness, width, xAxis, yAxis }: IPdfKitParams): void {
+		document.strokeColor(color || "#eef3fb")
 			.lineWidth(lineThickness || 1.2)
-			.moveTo(0, yAxis)
+			.moveTo(xAxis || 0, yAxis)
 			.lineTo(width, yAxis)
 			.stroke();
 	}
@@ -98,11 +91,6 @@ export class PdfKitService {
 
 	async RenderImage({ document, imageUrl, xAxis, yAxis, options }: IPdfKitParams): Promise<void> {
 		document.image(imageUrl, xAxis, yAxis, { ...options });
-	}
-
-
-	SetFont({ document, font }: IPdfKitParams): void {
-		document.font(font.name);
 	}
 
 
@@ -130,7 +118,7 @@ export class PdfKitService {
 
 
 	async GenerateQrCode<TData>(qrData: TData): Promise<string> {
-		const payload = JSON.stringify(qrData);
+		const payload = typeof qrData === 'string' ? qrData : JSON.stringify(qrData);
 		let qrImage = await QRCode.toDataURL(payload, {
 			width: 200,
 			margin: 2,
